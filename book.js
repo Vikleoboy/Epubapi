@@ -2,7 +2,8 @@ const path = require("path");
 const fs = require("fs");
 
 const cheerio = require("cheerio");
-const AdmZip = require("adm-zip");
+
+const extract = require("extract-zip");
 
 class Book {
   pth;
@@ -39,8 +40,9 @@ class Book {
         this.des + "\\" + k[0] + ".zip"
       );
 
-      const zip = new AdmZip(this.des + "\\" + k[0] + ".zip");
-      let sm = await zip.extractAllToAsync(this.des + "\\" + k[0]);
+      await extract(this.des + "\\" + k[0] + ".zip", {
+        dir: this.des + "\\" + k[0],
+      });
       await fs.unlinkSync(this.des + "\\" + k[0] + ".zip");
       return 1;
     } else {
@@ -94,6 +96,8 @@ class Book {
               let url = pic.attr("href");
 
               console.log(url);
+              let realLink = this.des + "\\" + k[0] + "\\" + f + "\\" + url;
+              this.Cover = realLink.replaceAll(/\\/g, "/");
               return url;
             }
           }
@@ -127,7 +131,8 @@ class Book {
             let pic = $("#" + nm);
             let url = pic.attr("href");
 
-            console.log(url);
+            let realLink = this.des + "\\" + k[0] + "\\" + url;
+            this.Cover = realLink.replaceAll(/\\/g, "/");
             return url;
           }
         }
@@ -137,95 +142,91 @@ class Book {
   async bookData(fld) {
     let fileName = path.basename(this.pth);
     let k;
-    let ifExists = await fs.existsSync(this.des + "\\" + k[0]);
-
     if (fld !== undefined) {
       k = [fld];
     } else {
       k = fileName.split(".");
     }
+    let ifExists = await fs.existsSync(this.des + "\\" + k[0]);
 
-    console.log(k);
+    if (ifExists) {
+      console.log(k);
 
-    let flds = await fs.readdirSync(this.des + "\\" + k[0]);
+      let flds = await fs.readdirSync(this.des + "\\" + k[0]);
 
-    let opPresent = true;
+      let opPresent = true;
 
-    for (let f of flds) {
-      console.log(f);
-      let know = await fs
-        .lstatSync(this.des + "\\" + k[0] + "\\" + f)
-        .isDirectory();
+      for (let f of flds) {
+        let know = await fs
+          .lstatSync(this.des + "\\" + k[0] + "\\" + f)
+          .isDirectory();
 
-      if (f.includes("O") || (f.includes("o") && know)) {
-        console.log("in the ops");
-        opPresent = false;
-        let book = await fs.readdirSync(this.des + "\\" + k[0] + "\\" + f);
-        console.log(book + "somethign");
+        if (f.includes("O") || (f.includes("o") && know)) {
+          opPresent = false;
+          let book = await fs.readdirSync(this.des + "\\" + k[0] + "\\" + f);
+
+          for (let i of book) {
+            if (i.includes(".ncx")) {
+              let rd = await fs.readFileSync(
+                this.des + "\\" + k[0] + "\\" + f + "\\" + i,
+                "utf8"
+              );
+              const $ = cheerio.load(rd);
+              const navContent = $("navMap navPoint");
+
+              let lessons = [];
+              for (let p of navContent) {
+                let point = $(p);
+
+                let name = point.find("navLabel").text().replaceAll("  ", "");
+                let link = point.find("content").attr("src");
+                let realLink = this.des + "\\" + k[0] + "\\" + f + "\\" + link;
+                lessons.push({
+                  name: name.replaceAll(/\n/g, ""),
+                  link: realLink.replaceAll(/\\/g, "/"),
+                });
+              }
+
+              this.Chapters = lessons;
+              return {
+                Chapters: lessons,
+              };
+            }
+          }
+        }
+      }
+
+      if (opPresent) {
+        let book = await fs.readdirSync(this.des + "\\" + k[0]);
+
         for (let i of book) {
           if (i.includes(".ncx")) {
             let rd = await fs.readFileSync(
-              this.des + "\\" + k[0] + "\\" + f + "\\" + i,
+              this.des + "\\" + k[0] + "\\" + "\\" + i,
               "utf8"
             );
             const $ = cheerio.load(rd);
             const navContent = $("navMap navPoint");
 
-            console.log(navContent.length);
             let lessons = [];
             for (let p of navContent) {
               let point = $(p);
 
               let name = point.find("navLabel").text().replaceAll("  ", "");
               let link = point.find("content").attr("src");
-              let realLink = this.des + "\\" + k[0] + "\\" + f + "\\" + link;
+              let realLink = this.des + "\\" + k[0] + "\\" + link;
+
               lessons.push({
                 name: name.replaceAll(/\n/g, ""),
                 link: realLink.replaceAll(/\\/g, "/"),
               });
             }
 
-            console.log(lessons);
             this.Chapters = lessons;
             return {
               Chapters: lessons,
             };
           }
-        }
-      }
-    }
-
-    if (opPresent) {
-      let book = await fs.readdirSync(this.des + "\\" + k[0]);
-
-      for (let i of book) {
-        if (i.includes(".ncx")) {
-          let rd = await fs.readFileSync(
-            this.des + "\\" + k[0] + "\\" + "\\" + i,
-            "utf8"
-          );
-          const $ = cheerio.load(rd);
-          const navContent = $("navMap navPoint");
-
-          console.log(navContent.length);
-          let lessons = [];
-          for (let p of navContent) {
-            let point = $(p);
-
-            let name = point.find("navLabel").text().replaceAll("  ", "");
-            let link = point.find("content").attr("src");
-            let realLink = this.des + "\\" + k[0] + "\\" + link;
-
-            lessons.push({
-              name: name.replaceAll(/\n/g, ""),
-              link: realLink.replaceAll(/\\/g, "/"),
-            });
-          }
-          console.log(lessons);
-          this.Chapters = lessons;
-          return {
-            Chapters: lessons,
-          };
         }
       }
     }
@@ -242,22 +243,16 @@ let bk = new Book(
 );
 
 // let bk = new Book(
-//   "C:/Users/Vikleo/Desktop/book.epub",
-//   "C:/Users/Vikleo/Desktop/bk"
-// );
-
-// let bk = new Book(
 //   "C:\\Users\\Vikleo\\Desktop\\brianna-wiest-the-mountain-is-you-thought-catalog-books-2021.epub",
 //   "C:\\Users\\Vikleo\\Desktop\\bk"
 // );
 // await bk.init();
 async function somethign() {
   let y = await bk.init();
-  if (y === 1) {
-    let n = await bk.getCover("book");
-    await bk.bookData("book");
-    console.log(bk.Name + " here", y);
-  }
+
+  let n = await bk.getCover("book");
+  await bk.bookData("book");
+  console.log(bk.Name, bk.Cover, " here", y);
 }
 
 somethign();
