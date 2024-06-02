@@ -29,12 +29,17 @@ class Book {
     console.log("HELLL ");
   }
 
-  async init(fld) {
+  async init() {
     let fileName = path.basename(this.pth);
-    let isFile = await fs.statSync(this.pth);
+    let isFile = await fs.existsSync(this.pth);
 
-    if (fileName.includes(".epub")) {
+    console.log(fileName, isFile);
+    if (fileName.includes(".epub") && isFile) {
       let k = fileName.split(".");
+      k.pop();
+      console.log(k);
+      let m = k.join(".");
+      k = [m];
       let copyfile = await fs.copyFileSync(
         this.pth,
         this.des + "\\" + k[0] + ".zip"
@@ -43,7 +48,7 @@ class Book {
       await extract(this.des + "\\" + k[0] + ".zip", {
         dir: this.des + "\\" + k[0],
       });
-      await fs.unlinkSync(this.des + "\\" + k[0] + ".zip");
+      await fs.rmSync(this.des + "\\" + k[0] + ".zip", { force: true });
       return 1;
     } else {
       console.log("not an epubfile");
@@ -57,6 +62,9 @@ class Book {
       k = [fld];
     } else {
       k = fileName.split(".");
+      k.pop();
+      let m = k.join(".");
+      k = [m];
     }
 
     let flds = await fs.readdirSync(this.des + "\\" + k[0]);
@@ -75,14 +83,21 @@ class Book {
 
         for (let i of book) {
           if (i.includes(".opf")) {
+            console.log(this.des + "\\" + k[0] + "\\" + f + "\\" + i);
             let rd = await fs.readFileSync(
               this.des + "\\" + k[0] + "\\" + f + "\\" + i,
               "utf8"
             );
             const $ = cheerio.load(rd);
-            const navContent = $('meta[name~="cover"]');
-            const bookName = $("metadata").find("dc\\:title").text();
 
+            let navContent = $('meta[name~="cover"]');
+            let bookName = $("metadata").find("dc\\:title").text();
+
+            if (navContent.length === 0 || bookName.length === 0) {
+              console.log("IN HERE");
+              navContent = $('opf\\:meta[name~="cover"]');
+              bookName = $("opf\\:metadata").find("dc\\:title").text();
+            }
             console.log(bookName + "bkbkb");
 
             this.Name = bookName;
@@ -91,8 +106,11 @@ class Book {
             let nm = navContent.attr("name");
             let cv = navContent.attr("content");
 
+            console.log(cv + "here cv");
+
             if (nm === "cover") {
-              let pic = $("#" + nm);
+              let pic = $(`item[id~="${cv}"]`);
+
               let url = pic.attr("href");
 
               console.log(url);
@@ -118,8 +136,6 @@ class Book {
           const navContent = $('meta[name~="cover"]');
           const bookName = $("metadata").find("dc\\:title").text();
 
-          console.log(bookName + "bkbkb");
-
           this.Name = bookName;
 
           console.log(navContent.attr("name"));
@@ -127,8 +143,15 @@ class Book {
           let nm = navContent.attr("name");
           let cv = navContent.attr("content");
 
+          if (navContent.length === 0 || bookName.length === 0) {
+            console.log("IN HERE");
+            navContent = $('opf\\:meta[name~="cover"]');
+            bookName = $("opf\\:metadata").find("dc\\:title").text();
+          }
+
           if (nm === "cover") {
-            let pic = $("#" + nm);
+            let pic = $(`item[id~="${cv}"]`);
+
             let url = pic.attr("href");
 
             let realLink = this.des + "\\" + k[0] + "\\" + url;
@@ -146,6 +169,9 @@ class Book {
       k = [fld];
     } else {
       k = fileName.split(".");
+      k.pop();
+      let m = k.join(".");
+      k = [m];
     }
     let ifExists = await fs.existsSync(this.des + "\\" + k[0]);
 
@@ -179,10 +205,12 @@ class Book {
                 let point = $(p);
 
                 let name = point.find("navLabel").text().replaceAll("  ", "");
+                name = name.replaceAll(/\t/g, "");
+                name = name.replaceAll(/\n/g, "");
                 let link = point.find("content").attr("src");
                 let realLink = this.des + "\\" + k[0] + "\\" + f + "\\" + link;
                 lessons.push({
-                  name: name.replaceAll(/\n/g, ""),
+                  name: name,
                   link: realLink.replaceAll(/\\/g, "/"),
                 });
               }
@@ -213,11 +241,13 @@ class Book {
               let point = $(p);
 
               let name = point.find("navLabel").text().replaceAll("  ", "");
+              name = name.replaceAll(/\t/g, "");
+              name = name.replaceAll(/\n/g, "");
               let link = point.find("content").attr("src");
               let realLink = this.des + "\\" + k[0] + "\\" + link;
 
               lessons.push({
-                name: name.replaceAll(/\n/g, ""),
+                name: name,
                 link: realLink.replaceAll(/\\/g, "/"),
               });
             }
@@ -237,25 +267,25 @@ class Book {
   }
 }
 
-let bk = new Book(
-  "C:\\Users\\Vikleo\\Desktop\\book.epub",
-  "C:\\Users\\Vikleo\\Desktop\\bk"
-);
+// let bk = new Book(
+//   "C:/Users/Vikleo/Desktop/Steve.epub",
+//   "C:/Users/Vikleo/Desktop/bk"
+// );
 
 // let bk = new Book(
 //   "C:\\Users\\Vikleo\\Desktop\\brianna-wiest-the-mountain-is-you-thought-catalog-books-2021.epub",
 //   "C:\\Users\\Vikleo\\Desktop\\bk"
 // );
-// await bk.init();
-async function somethign() {
-  let y = await bk.init();
+// // // await bk.init();
+// async function somethign() {
+//   let y = await bk.init();
 
-  let n = await bk.getCover("book");
-  await bk.bookData("book");
-  console.log(bk.Name, bk.Cover, " here", y);
-}
+//   let n = await bk.getCover("Steve");
+//   await bk.bookData("Steve");
+//   console.log(bk.Name, bk.Cover, " here", y);
+// }
 
-somethign();
+// somethign();
 // await bk.bookData("book");
 
 module.exports = Book;
