@@ -3,6 +3,7 @@ const fs = require("fs");
 
 const cheerio = require("cheerio");
 
+const unzipper = require("unzipper");
 const extract = require("extract-zip");
 
 class Book {
@@ -45,9 +46,22 @@ class Book {
         this.des + "\\" + k[0] + ".zip"
       );
 
+      await fs.rmSync(this.des + "\\" + k[0], { recursive: true, force: true });
+      await fs.mkdirSync(this.des + "\\" + k[0]);
+
       await extract(this.des + "\\" + k[0] + ".zip", {
         dir: this.des + "\\" + k[0],
       });
+
+      // try {
+      //   await fs
+      //     .createReadStream(this.des + "\\" + k[0] + ".zip")
+      //     .pipe(unzipper.Extract({ path: this.des + "\\" + k[0] }))
+      //     .promise();
+      //   console.log("Extraction complete");
+      // } catch (error) {
+      //   console.error("Error during extraction:", error);
+      // }
       await fs.rmSync(this.des + "\\" + k[0] + ".zip", { force: true });
       return 1;
     } else {
@@ -55,6 +69,7 @@ class Book {
       return 0;
     }
   }
+
   async getCover(fld) {
     let fileName = path.basename(this.pth);
     let k;
