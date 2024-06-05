@@ -3,7 +3,6 @@ const fs = require("fs");
 
 const cheerio = require("cheerio");
 
-const unzipper = require("unzipper");
 const extract = require("extract-zip");
 
 class Book {
