@@ -1,7 +1,7 @@
 {
   "name": "epubapi",
   "version": "1.0.0",
-  "description": "A Module to Read Epub Books",
+  "description": "A Module to Read Epub Books ",
   "main": "book.js",
   "type": "commonjs",
   "scripts": {
